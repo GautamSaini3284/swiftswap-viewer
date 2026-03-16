@@ -1,0 +1,12 @@
+[build]
+  functions = "netlify/functions"
+
+[build.environment]
+  TRANSCRIPT_SECRET = "swiftswap2024secret"
+  JSONBIN_KEY       = "$2a$10$wxz3o1eZpx4es1FK2.4i2uQVl6oqfpN/sIkZZ/bukQ.TCTFd5Pw/W"
+  JSONBIN_BIN_ID    = "69b75b52b7ec241ddc706b41"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"

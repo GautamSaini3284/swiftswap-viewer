@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SwiftSwap Transcript Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1e1f22; color: #dcddde; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  #topbar { background: linear-gradient(135deg,#0d1117,#1a2332); border-bottom: 2px solid #00b4d8; padding: 10px 20px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .logo { width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#00b4d8,#0077a8);display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid #00b4d8;flex-shrink:0; }
+  .brand { font-weight:800;color:#fff;font-size:16px; }
+  .sub   { font-size:11px;color:#00b4d8;font-weight:600;letter-spacing:.8px;text-transform:uppercase; }
+  #ticket-label { margin-left:auto;color:#72767d;font-size:12px; }
+  #loading { position:fixed;inset:0;background:#1e1f22;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:99; }
+  .spinner { width:40px;height:40px;border:3px solid #313338;border-top:3px solid #00b4d8;border-radius:50%;animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #loading p { color:#a3a6aa;font-size:14px; }
+  #error { display:none;position:fixed;inset:0;background:#1e1f22;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:30px; }
+  #error h2 { color:#ed4245;font-size:22px; }
+  #error p  { color:#a3a6aa;font-size:13px;max-width:520px;line-height:1.8; }
+  #nourl { display:none;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:12px;text-align:center;padding:30px; }
+  #nourl h2 { color:#a3a6aa; }
+  #nourl p  { color:#72767d;font-size:13px;max-width:460px;line-height:1.6; }
+  #frame { flex:1;border:none;width:100%;display:none;background:#1e1f22; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="logo">⚡</div>
+  <div><div class="brand">SwiftSwap</div><div class="sub">Transcript Viewer</div></div>
+  <span id="ticket-label"></span>
+</div>
+<div id="loading"><div class="spinner"></div><p>Loading transcript...</p></div>
+<div id="error"><h2>⚠️ Transcript not found</h2><p id="error-msg">Could not load this transcript.</p></div>
+<div id="nourl"><h2>No ticket ID</h2><p>Links are sent by the SwiftSwap bot after each deal.</p></div>
+<iframe id="frame" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
+<script>
+  const params   = new URLSearchParams(window.location.search);
+  const ticketId = params.get('id');
+  const loading  = document.getElementById('loading');
+  const errorBox = document.getElementById('error');
+  const errorMsg = document.getElementById('error-msg');
+  const nourl    = document.getElementById('nourl');
+  const frame    = document.getElementById('frame');
+  const label    = document.getElementById('ticket-label');
+  if (!ticketId) {
+    loading.style.display = 'none';
+    nourl.style.display   = 'flex';
+  } else {
+    label.textContent = 'Ticket #' + ticketId;
+    fetch('/.netlify/functions/view?id=' + encodeURIComponent(ticketId))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(html => {
+        const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+        frame.onload = () => { loading.style.display='none'; frame.style.display='block'; };
+        frame.src = URL.createObjectURL(blob);
+      })
+      .catch(err => { loading.style.display='none'; errorBox.style.display='flex'; errorMsg.textContent=err.message; });
+  }
+</script>
+</body>
+</html>
