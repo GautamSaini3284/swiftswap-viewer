@@ -9,19 +9,16 @@
   body{background:#1e1f22;color:#dcddde;font-family:'Segoe UI',sans-serif;height:100vh;display:flex;flex-direction:column}
   #topbar{background:linear-gradient(135deg,#0d1117,#1a2332);border-bottom:2px solid #00b4d8;padding:10px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0}
   .logo{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#00b4d8,#0077a8);display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid #00b4d8;flex-shrink:0}
-  .brand{font-weight:800;color:#fff;font-size:16px}
-  .sub{font-size:11px;color:#00b4d8;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+  .brand{font-weight:800;color:#fff;font-size:16px}.sub{font-size:11px;color:#00b4d8;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
   #ticket-label{margin-left:auto;color:#72767d;font-size:12px}
   #loading{position:fixed;inset:0;background:#1e1f22;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:99}
   .spinner{width:40px;height:40px;border:3px solid #313338;border-top:3px solid #00b4d8;border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   #loading p{color:#a3a6aa;font-size:14px}
   #error{display:none;position:fixed;inset:0;background:#1e1f22;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:30px}
-  #error h2{color:#ed4245;font-size:22px}
-  #error p{color:#a3a6aa;font-size:13px;max-width:520px;line-height:1.8}
+  #error h2{color:#ed4245;font-size:22px}#error p{color:#a3a6aa;font-size:13px;max-width:520px;line-height:1.8}
   #nourl{display:none;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:12px;text-align:center;padding:30px}
-  #nourl h2{color:#a3a6aa}
-  #nourl p{color:#72767d;font-size:13px;max-width:460px;line-height:1.6}
+  #nourl h2{color:#a3a6aa}#nourl p{color:#72767d;font-size:13px;max-width:460px;line-height:1.6}
   #frame{flex:1;border:none;width:100%;display:none;background:#1e1f22}
 </style>
 </head>
@@ -33,13 +30,11 @@
 </div>
 <div id="loading"><div class="spinner"></div><p id="loading-text">Loading transcript...</p></div>
 <div id="error"><h2>⚠️ Transcript not found</h2><p id="error-msg">Could not load this transcript.</p></div>
-<div id="nourl"><h2>No ticket ID</h2><p>Links are sent by the SwiftSwap bot after each deal completes.</p></div>
+<div id="nourl"><h2>No ticket ID</h2><p>Links are sent by the SwiftSwap bot after each deal.</p></div>
 <iframe id="frame" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
-
 <script>
-  // JSONBin config — bot writes here, viewer reads from here
   const JSONBIN_KEY    = '$2a$10$wxz3o1eZpx4es1FK2.4i2uQVl6oqfpN/sIkZZ/bukQ.TCTFd5Pw/W';
-  const JSONBIN_BIN_ID = '69b7e902c3097a1dd52d036c';
+  const INDEX_BIN_ID   = '69b7e902c3097a1dd52d036c';
 
   const params   = new URLSearchParams(window.location.search);
   const ticketId = params.get('id');
@@ -51,30 +46,43 @@
   const frame    = document.getElementById('frame');
   const label    = document.getElementById('ticket-label');
 
+  function showError(msg) {
+    loading.style.display = 'none';
+    errorBox.style.display = 'flex';
+    errorMsg.textContent = msg;
+  }
+
   if (!ticketId) {
     loading.style.display = 'none';
     nourl.style.display   = 'flex';
   } else {
-    label.textContent    = 'Ticket #' + ticketId;
-    loadingTxt.textContent = 'Fetching transcript...';
+    label.textContent = 'Ticket #' + ticketId;
+    loadingTxt.textContent = 'Looking up transcript...';
 
-    fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+    // Step 1: Get bin ID from index
+    fetch(`https://api.jsonbin.io/v3/b/${INDEX_BIN_ID}/latest`, {
       headers: { 'X-Master-Key': JSONBIN_KEY }
     })
-    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(r => r.ok ? r.json() : Promise.reject('Index fetch failed: ' + r.status))
     .then(data => {
-      const html = data.record?.transcripts?.[ticketId];
-      if (!html) throw new Error('Transcript #' + ticketId + ' not found in storage');
+      const binId = data.record?.transcripts?.[ticketId];
+      if (!binId) throw new Error('Transcript #' + ticketId + ' not found');
+      loadingTxt.textContent = 'Fetching transcript...';
+      // Step 2: Fetch the actual transcript bin
+      return fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+        headers: { 'X-Master-Key': JSONBIN_KEY }
+      });
+    })
+    .then(r => r.ok ? r.json() : Promise.reject('Transcript fetch failed: ' + r.status))
+    .then(data => {
+      const html = data.record?.html;
+      if (!html) throw new Error('No HTML in transcript bin');
       loadingTxt.textContent = 'Rendering...';
       const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
       frame.onload = () => { loading.style.display='none'; frame.style.display='block'; };
       frame.src = URL.createObjectURL(blob);
     })
-    .catch(err => {
-      loading.style.display  = 'none';
-      errorBox.style.display = 'flex';
-      errorMsg.textContent   = err.message;
-    });
+    .catch(err => showError(String(err)));
   }
 </script>
 </body>
